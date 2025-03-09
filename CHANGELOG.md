@@ -1,24 +1,15 @@
 # Dify Changelog
 
-## [1.0.2] - 2025-02-28
+## [Initial Release] - 2025-03-09
 
-- 添加应用分隔符功能：支持使用 `应用名称>>>查询内容` 格式精确指定要使用的Dify应用
-- 改进应用名称识别算法，支持更灵活的应用匹配
-- 优化错误处理和响应显示
-
-## [1.0.1] - 2023-07-25
-
-- 添加AI Evals支持
-- 改进工具描述和文档
-- 优化错误处理
-- 添加详细README指南
-
-## [Initial Version] - 2023-07-24
-
-初始版本发布，包含以下功能：
-
-- 添加Dify应用 (`add-dify-app`)
-- 查询Dify应用 (`ask-dify`) 
-- 管理Dify应用列表 (`list-dify`)
-- 使用LocalStorage安全存储应用配置
-- 添加确认机制提升安全性
+- Seamless integration with Dify AI applications
+- AI Tools integration with Raycast command system (@dify)
+- Add Dify App command for configuring new Dify applications 
+- Send to Dify command for interactive conversations with Dify AI
+- List Dify command for managing your Dify applications
+- View Conversations command for accessing conversation history
+- Support for various application types: Chatflow/Agent, Workflow, Text Generator
+- Conversation continuity with Continuous and Single Call modes
+- Response streaming support for real-time interactions
+- Flexible Wait for Response options
+- Support for customizable input parameters in various formats

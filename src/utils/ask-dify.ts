@@ -7,11 +7,11 @@ export default async function Command(query: string): Promise<string> {
   console.log("ask-dify tool called with query:", query);
 
   try {
-    // 检查查询是否为空
+    // Check if the query is empty
     if (!query || query.trim() === "") {
       console.error("Empty query received");
       return JSON.stringify({
-        error: "Empty query received. Please provide valid parameters."
+        error: "Empty query received. Please provide valid parameters.",
       });
     }
 
@@ -19,13 +19,13 @@ export default async function Command(query: string): Promise<string> {
     const params = JSON.parse(query);
     console.log("Parsed parameters:", params);
 
-    // 检查是否是列出应用的请求
+    // Check if this is a request to list applications
     if (params.list) {
       console.log("List apps request detected");
       return await listApps(params.limit || 5);
     }
 
-    // 聊天请求处理
+    // Chat request processing
     // Extract parameters
     const appName = params.appName;
     const content = params.query;
@@ -56,14 +56,18 @@ export default async function Command(query: string): Promise<string> {
       inputs,
       user,
       conversationId,
-      responseMode
+      responseMode,
     });
-    
+
     // Create a callback function to handle streaming messages
-    const onStreamingMessage = responseMode === "streaming" ? 
-      (message: string, isComplete: boolean) => {
-        console.log(`Streaming message received (${isComplete ? 'complete' : 'partial'}): ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}`);
-      } : undefined;
+    const onStreamingMessage =
+      responseMode === "streaming"
+        ? (message: string, isComplete: boolean) => {
+            console.log(
+              `Streaming message received (${isComplete ? "complete" : "partial"}): ${message.substring(0, 50)}${message.length > 50 ? "..." : ""}`,
+            );
+          }
+        : undefined;
 
     // Call askDify function
     let response;
@@ -74,7 +78,7 @@ export default async function Command(query: string): Promise<string> {
         user: user,
         conversationId: conversationId,
         responseMode: responseMode,
-        onStreamingMessage: onStreamingMessage
+        onStreamingMessage: onStreamingMessage,
       });
     } catch (error) {
       console.error("Error with streaming API call:", error);
@@ -90,7 +94,6 @@ export default async function Command(query: string): Promise<string> {
       app_type: response.app_type || "Unknown",
       conversation_id: response.conversation_id,
       message_id: response.message_id,
-
     };
 
     console.log("Returning result to Raycast:", result);
@@ -104,64 +107,64 @@ export default async function Command(query: string): Promise<string> {
 }
 
 /**
- * 列出所有 Dify 应用
+ * List all Dify applications
  */
 async function listApps(limit: number): Promise<string> {
   console.log(`Listing Dify apps with limit: ${limit}`);
   try {
-    // 从本地存储加载应用列表
+    // Load application list from local storage
     const appsJson = await LocalStorage.getItem<string>("dify-apps");
     const apps: DifyApp[] = appsJson ? JSON.parse(appsJson) : [];
-    
+
     console.log(`Found ${apps.length} apps in storage`);
-    
+
     if (apps.length === 0) {
       return JSON.stringify({
         message: "No Dify applications found. Please add an application first.",
         apps: [],
         total: 0,
-        showing: 0
+        showing: 0,
       });
     }
-    
-    // 限制返回的应用数量
+
+    // Limit the number of returned applications
     const limitedApps = apps.slice(0, limit);
-    
-    // 格式化应用信息 - 新格式
-    const formattedApps = limitedApps.map(app => {
-      // 生成示例 inputs 格式
-      const exampleInputs = app.type.toLowerCase().includes("agent") ? 
-        { "query": "your question here" } : 
-        { "message": "your message here" };
-      
-      // 生成简单描述 (英文)
-      const description = app.type.toLowerCase().includes("agent") ? 
-        "Intelligent agent application that can answer complex questions" : 
-        "Conversational application for natural dialogue";
-      
+
+    // Format application information - new format
+    const formattedApps = limitedApps.map((app) => {
+      // Generate example inputs format
+      const exampleInputs = app.type.toLowerCase().includes("agent")
+        ? { query: "your question here" }
+        : { message: "your message here" };
+
+      // Generate simple description (English)
+      const description = app.type.toLowerCase().includes("agent")
+        ? "Intelligent agent application that can answer complex questions"
+        : "Conversational application for natural dialogue";
+
       return {
         name: app.name,
         type: app.type,
         endpoint: app.endpoint,
         inputs_format: JSON.stringify(exampleInputs, null, 2),
-        description: description
+        description: description,
       };
     });
-    
-    // 构建响应
+
+    // Build response
     const result = {
-      message: `Found ${apps.length} Dify application${apps.length > 1 ? 's' : ''}${apps.length > limit ? `, showing the first ${limit}` : ''}:`,
+      message: `Found ${apps.length} Dify application${apps.length > 1 ? "s" : ""}${apps.length > limit ? `, showing the first ${limit}` : ""}:`,
       apps: formattedApps,
       total: apps.length,
-      showing: limitedApps.length
+      showing: limitedApps.length,
     };
-    
+
     console.log("Returning apps list:", result);
     return JSON.stringify(result);
   } catch (error) {
     console.error("Error listing apps:", error);
     return JSON.stringify({
-      error: `Failed to list Dify applications: ${error instanceof Error ? error.message : String(error)}`
+      error: `Failed to list Dify applications: ${error instanceof Error ? error.message : String(error)}`,
     });
   }
 }

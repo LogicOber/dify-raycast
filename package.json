@@ -2,37 +2,42 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "dify",
   "title": "Dify",
-  "description": "Chat with your Dify applications and manage conversations directly from Raycast.",
+  "description": "Access, manage and interact with your Dify AI applications directly within Raycast.",
   "icon": "extension-logo.png",
   "author": "lysonober",
   "license": "MIT",
+  "categories": [
+    "Applications",
+    "Developer Tools",
+    "Productivity"
+  ],
   "commands": [
     {
       "name": "list-dify",
-      "title": "List Dify Apps",
-      "subtitle": "Manage Your Applications",
+      "title": "List Dify",
+      "subtitle": "Dify",
       "description": "Helps you list and manage all Dify apps saved in Raycast.",
       "mode": "view"
     },
     {
       "name": "add-dify",
-      "title": "Add Dify App",
-      "subtitle": "Configure New Application",
+      "title": "Add Dify",
+      "subtitle": "Dify",
       "description": "Add a new Dify application with API endpoint and key to Raycast.",
       "mode": "view"
     },
     {
       "name": "ask-dify",
-      "title": "Ask Dify",
-      "subtitle": "Intelligent Conversations",
+      "title": "Send to Dify",
+      "subtitle": "Dify",
       "description": "Send queries to your Dify applications and get intelligent responses",
       "mode": "view"
     },
     {
       "name": "ask-dify-history",
       "title": "View Conversations",
-      "subtitle": "Dify History",
-      "description": "View and manage your conversation history with Dify",
+      "subtitle": "Dify",
+      "description": "View and manage your conversation history with Dify applications",
       "mode": "view"
     }
   ],

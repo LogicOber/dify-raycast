@@ -89,7 +89,9 @@ function EditDifyAppForm(props: { app: DifyApp; onEdit: () => void }) {
   const [appType, setAppType] = useState<DifyAppType>(app.type || DifyAppType.ChatflowAgent);
   const [responseMode, setResponseMode] = useState<string>(app.responseMode || "blocking");
   const [waitForResponse, setWaitForResponse] = useState<boolean>(app.waitForResponse !== false);
-  const [conversationType, setConversationType] = useState<DifyConversationType>(app.conversationType || DifyConversationType.Continuous);
+  const [conversationType, setConversationType] = useState<DifyConversationType>(
+    app.conversationType || DifyConversationType.Continuous,
+  );
 
   // Handle form submission
   const handleSubmit = async (values: {
@@ -157,7 +159,7 @@ function EditDifyAppForm(props: { app: DifyApp; onEdit: () => void }) {
       const timestamp = now.toISOString();
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const formattedTimestamp = `${timestamp} (${timezone})`;
-      
+
       // Update the app
       const updatedApps = existingApps.map((existingApp) => {
         if (existingApp.name === app.name) {
@@ -208,7 +210,7 @@ function EditDifyAppForm(props: { app: DifyApp; onEdit: () => void }) {
     <Form
       actions={
         <ActionPanel>
-          <Action.SubmitForm title="Update Application" onSubmit={handleSubmit} />
+          <Action.SubmitForm icon={Icon.Download} title="Update Application" onSubmit={handleSubmit} />
         </ActionPanel>
       }
     >
@@ -313,25 +315,25 @@ export default function Command() {
     try {
       const appsJson = await LocalStorage.getItem<string>("dify-apps");
       const loadedApps: DifyApp[] = appsJson ? JSON.parse(appsJson) : [];
-      
+
       // Create timestamp with timezone information
       const now = new Date();
       const timestamp = now.toISOString();
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const formattedTimestamp = `${timestamp} (${timezone})`;
-      
+
       // Add timestamps to apps that don't have them
-      const updatedApps = loadedApps.map(app => ({
+      const updatedApps = loadedApps.map((app) => ({
         ...app,
         createdAt: app.createdAt || formattedTimestamp,
-        updatedAt: app.updatedAt || formattedTimestamp
+        updatedAt: app.updatedAt || formattedTimestamp,
       }));
-      
+
       // Save the updated apps if any changes were made
       if (JSON.stringify(loadedApps) !== JSON.stringify(updatedApps)) {
         await LocalStorage.setItem("dify-apps", JSON.stringify(updatedApps));
       }
-      
+
       // 根据排序方式对应用进行排序
       const sortedApps = sortAppsByOrder(updatedApps, sortOrder);
       setApps(sortedApps);
@@ -527,9 +529,8 @@ ${formatInputs(app.inputs)}
       selectedItemId={selectedAppId}
       onSelectionChange={(id) => setSelectedAppId(id || "")}
       searchBarAccessory={
-        <List.Dropdown 
+        <List.Dropdown
           tooltip="Sort Order"
-          storeValue={true}
           onChange={(newValue) => handleSortOrderChange(newValue as "newest" | "oldest")}
           value={sortOrder}
         >
@@ -552,10 +553,7 @@ ${formatInputs(app.inputs)}
             title={app.name}
             subtitle={getAppTypeText(app.type)}
             detail={<List.Item.Detail markdown={getDetailMarkdown(app)} />}
-            accessories={[
-              { text: app.endpoint },
-              { tag: { value: app.type, color: getAppTypeColor(app.type) } },
-            ]}
+            accessories={[{ text: app.endpoint }, { tag: { value: app.type, color: getAppTypeColor(app.type) } }]}
             actions={
               <ActionPanel>
                 <Action
@@ -567,10 +565,10 @@ ${formatInputs(app.inputs)}
                   }}
                   shortcut={{ modifiers: [], key: "return" }}
                 />
-                <Action.Push 
-                  title="View Details" 
-                  icon={Icon.Eye} 
-                  target={<AppDetailView app={app} />} 
+                <Action.Push
+                  title="View Details"
+                  icon={Icon.Eye}
+                  target={<AppDetailView app={app} />}
                   shortcut={{ modifiers: ["cmd"], key: "return" }}
                 />
                 <Action.Push
@@ -582,16 +580,19 @@ ${formatInputs(app.inputs)}
                 <Action.CopyToClipboard
                   title="Copy Application Name"
                   content={app.name}
+                  icon={Icon.Clipboard}
                   shortcut={{ modifiers: ["cmd"], key: "c" }}
                 />
                 <Action.CopyToClipboard
                   title="Copy Endpoint"
                   content={app.endpoint}
+                  icon={Icon.Link}
                   shortcut={{ modifiers: ["shift", "opt"], key: "c" }}
                 />
                 <Action.CopyToClipboard
                   title="Copy Api Key"
                   content={app.apiKey}
+                  icon={Icon.Key}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                 />
                 <ActionPanel.Section title="Danger Zone">

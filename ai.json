@@ -1,28 +1,28 @@
 {
-  "instructions": "当用户想要查询 Dify 应用时，请先使用 list-dify-apps 工具获取可用的应用列表和详细信息，然后再使用 ask-dify 工具发送查询。不要尝试猜测应用名称或接口参数，必须基于 list-dify-apps 返回的信息。",
+  "instructions": "When a user wants to query a Dify application, first use the list-dify-apps tool to get a list of available applications and their details, then use the ask-dify tool to send the query. Do not attempt to guess application names or interface parameters, you must base them on the information returned by list-dify-apps.",
   "evals": [
     {
-      "input": "@dify 我想问一下关于人工智能的知识",
+      "input": "@dify I would like to ask about artificial intelligence knowledge",
       "expected": [
         {"callsTool": "list-dify-apps"},
-        {"callsTool": {"name": "ask-dify", "arguments": {"query": {"includes": "人工智能"}}}}
+        {"callsTool": {"name": "ask-dify", "arguments": {"query": {"includes": "artificial intelligence"}}}}
       ]
     },
     {
-      "input": "@dify 使用 ChatGPT 应用问一下什么是机器学习",
+      "input": "@dify Use the ChatGPT app to ask what is machine learning",
       "expected": [
         {"callsTool": "list-dify-apps"},
-        {"callsTool": {"name": "ask-dify", "arguments": {"appName": "ChatGPT", "query": {"includes": "机器学习"}}}}
+        {"callsTool": {"name": "ask-dify", "arguments": {"appName": "ChatGPT", "query": {"includes": "machine learning"}}}}
       ]
     },
     {
-      "input": "@dify 列出我所有的应用",
+      "input": "@dify List all my applications",
       "expected": [
         {"callsTool": "list-dify-apps"}
       ]
     },
     {
-      "input": "@dify 告诉我关于我的 SlackNote 应用的信息",
+      "input": "@dify Tell me about my SlackNote application",
       "expected": [
         {"callsTool": "list-dify-apps"},
         {"callsTool": "explain-dify-app"}

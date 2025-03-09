@@ -134,7 +134,7 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
   let appType;
   let appInputs;
   let conversationType;
-  
+
   // If API key or endpoint not provided, load app details from storage
   if (!apiKey || !endpoint) {
     console.log("Loading app details from storage...");
@@ -158,28 +158,28 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
     if (!appDetails) {
       throw new Error(`App "${usedApp}" not found. Please check your app name or add this app first.`);
     }
-    
+
     // Use app details if not provided in options
     apiKey = apiKey || appDetails.apiKey;
     endpoint = endpoint || appDetails.endpoint;
     appType = appDetails.type;
     appInputs = appDetails.inputs;
     conversationType = appDetails.conversationType;
-    
-    // 如果 waitForResponse 未在选项中指定，则使用应用配置中的值
+
+    // If waitForResponse is not specified in options, use the value from app configuration
     if (options && options.waitForResponse === undefined && appDetails.waitForResponse !== undefined) {
       options.waitForResponse = appDetails.waitForResponse;
     }
   } else {
     console.log(`Using provided API key and endpoint for app: ${usedApp}`);
-    
-    // 当直接提供 API 密钥和端点时，仍需要获取应用类型
+
+    // When API key and endpoint are provided directly, we still need to get the app type
     if (!appType) {
       console.log(`Attempting to find app type for: ${usedApp}`);
       const appsJson = await LocalStorage.getItem<string>("dify-apps");
       const apps: DifyApp[] = appsJson ? JSON.parse(appsJson) : [];
       const appDetails = apps.find((app) => app.name === usedApp);
-      
+
       if (appDetails) {
         appType = appDetails.type;
         appInputs = appDetails.inputs;
@@ -221,16 +221,16 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
       response_mode: options?.responseMode || "blocking", // Use provided responseMode or default to blocking
     };
 
-    // 添加 conversation_id，但只有当它是有效的 UUID 且应用类型不是单次调用时才传递
+    // Add conversation_id, but only pass it when it's a valid UUID and the app type is not single call
     if (conversationId && conversationType !== DifyConversationType.SingleCall) {
-      // 检查是否是有效的 UUID
+      // Check if it's a valid UUID
       const isValidUUID = (id: string): boolean => {
         if (!id) return false;
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         return uuidRegex.test(id);
       };
-      
-      // 只有当 ID 是有效的 UUID 时才传递
+
+      // Only pass when the ID is a valid UUID
       if (isValidUUID(conversationId)) {
         requestBody.conversation_id = conversationId;
         console.log(`Using valid conversation_id: ${conversationId}`);
@@ -268,13 +268,13 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
     if (isNonWaitMode) {
       console.log(`Making non-wait mode API request to: ${apiEndpoint}`);
       console.log(`Request body: ${JSON.stringify(requestBody)}`);
-      
+
       // Use a 6-second timeout for non-wait mode
       // If no error occurs within 6 seconds, we consider the request successful
       try {
         // Create a timeout signal with 6 seconds
         const shortTimeoutSignal = AbortSignal.timeout(6000);
-        
+
         // Start the request but don't wait for it to complete
         const requestPromise = fetch(apiEndpoint, {
           method: "POST",
@@ -285,7 +285,7 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
           body: JSON.stringify(requestBody),
           signal: shortTimeoutSignal,
         });
-        
+
         // Wait for 6 seconds to check for immediate errors
         const timeoutPromise = new Promise((resolve) => {
           setTimeout(() => {
@@ -294,56 +294,58 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
             resolve(true);
           }, 6000);
         });
-        
+
         // Race between the request and the timeout
         // If the request fails within 6 seconds, we'll get an error
         // If it doesn't fail within 6 seconds, the timeout will resolve first
         await Promise.race([
-          requestPromise.then(response => {
+          requestPromise.then((response) => {
             // If we get a response within 6 seconds, check for auth errors
             if (response.status === 401 || response.status === 403) {
               throw new Error(`Authentication error: ${response.status} ${response.statusText}`);
             }
             console.log(`Quick response received: ${response.status} ${response.statusText}`);
           }),
-          timeoutPromise
+          timeoutPromise,
         ]);
-        
+
         // If we get here, either the request succeeded or we timed out without errors
         // Either way, we consider it a success for non-wait mode
         console.log("Non-wait mode request initiated successfully");
         return {
-          message: "Your query has been successfully sent to Dify App in non-wait mode. The system will process your request in the background and follow the notification settings configured in your Dify application.",
-          conversation_id: "",
-          message_id: "",
-          used_app: usedApp,
-          app_type: appType ? appType.toString() : "unknown",
-          non_wait_mode: true
-        };
-      } catch (error) {
-        // If we get an auth error, throw it immediately
-        if (error instanceof Error && 
-            (error.message.includes("Authentication") || 
-             error.message.includes("401") || 
-             error.message.includes("403"))) {
-          throw error;
-        }
-        
-        // For other errors within 6 seconds, log but still return success
-        // This is because we want to be lenient in non-wait mode
-        console.log("Error in non-wait mode, but still considering request sent:", error);
-        return {
-          message: "Your query has been sent to Dify App in non-wait mode, but there might be connectivity issues. The system will attempt to process your request.",
+          message:
+            "Your query has been successfully sent to Dify App in non-wait mode. The system will process your request in the background and follow the notification settings configured in your Dify application.",
           conversation_id: "",
           message_id: "",
           used_app: usedApp,
           app_type: appType ? appType.toString() : "unknown",
           non_wait_mode: true,
-          error: error instanceof Error ? error.message : String(error)
+        };
+      } catch (error) {
+        // If we get an auth error, throw it immediately
+        if (
+          error instanceof Error &&
+          (error.message.includes("Authentication") || error.message.includes("401") || error.message.includes("403"))
+        ) {
+          throw error;
+        }
+
+        // For other errors within 6 seconds, log but still return success
+        // This is because we want to be lenient in non-wait mode
+        console.log("Error in non-wait mode, but still considering request sent:", error);
+        return {
+          message:
+            "Your query has been sent to Dify App in non-wait mode, but there might be connectivity issues. The system will attempt to process your request.",
+          conversation_id: "",
+          message_id: "",
+          used_app: usedApp,
+          app_type: appType ? appType.toString() : "unknown",
+          non_wait_mode: true,
+          error: error instanceof Error ? error.message : String(error),
         };
       }
     }
-    
+
     // Regular wait mode handling below
     console.log(`Making API request to: ${apiEndpoint}`);
     console.log(`Request body: ${JSON.stringify(requestBody)}`);
@@ -393,12 +395,12 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
 
       throw new Error(`Dify API error: ${errorMessage}`);
     }
-    
+
     // Non-wait mode is handled earlier in the code
-    
+
     // Process the response based on app type and response mode
     let result: DifyResponse;
-    
+
     // Check if we're in streaming mode
     if (options?.responseMode === "streaming") {
       // For streaming mode, we need to handle SSE (Server-Sent Events) format
@@ -407,60 +409,60 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
       let conversationId = "";
       let messageId = "";
       let metadata = {};
-      
+
       // Handle streaming response using fetch's native stream handling
       if (!response.body) {
         throw new Error("Response body is null");
       }
-      
+
       // Use a TextDecoder to convert chunks to text
       const decoder = new TextDecoder();
       let buffer = "";
-      
-      // 直接使用响应体作为流读取器
+
+      // Use response body directly as stream reader
       const reader = response.body;
-      
-      // 处理流数据
+
+      // Process stream data
       try {
-        // 处理流
+        // Process the stream
         for await (const chunk of reader) {
-          const text = typeof chunk === 'string' ? chunk : decoder.decode(chunk as Uint8Array, { stream: true });
+          const text = typeof chunk === "string" ? chunk : decoder.decode(chunk as Uint8Array, { stream: true });
           buffer += text;
-          
+
           // Process complete events in the buffer
           // SSE format: each event starts with "data: " and ends with "\n\n"
           const events = buffer.split("\n\n");
-          
+
           // Keep the last incomplete event in the buffer
           buffer = events.pop() || "";
-          
+
           for (const event of events) {
             if (!event.trim() || !event.startsWith("data: ")) continue;
-            
+
             try {
               // Extract the JSON part (remove "data: " prefix)
               const jsonStr = event.substring(6);
               const eventData = JSON.parse(jsonStr);
-              
+
               console.log("Streaming event:", eventData.event);
-              
+
               if (eventData.event === "message") {
                 // Append to the answer
                 const messageText = eventData.answer || "";
                 fullAnswer += messageText;
-                
+
                 // Call the streaming callback if provided with the full accumulated answer
                 if (options?.onStreamingMessage) {
                   options.onStreamingMessage(fullAnswer, false);
                 }
-                
-                // 如果存在全局回调函数，也调用它，传递完整累积内容
-                // @ts-expect-error - 使用全局回调函数
+
+                // If there's a global callback function, call it too, passing the complete accumulated content
+                // @ts-expect-error - Using global callback function
                 if (global.handleStreamingMessage) {
-                  // @ts-expect-error - 调用全局回调函数
+                  // @ts-expect-error - Calling global callback function
                   global.handleStreamingMessage(fullAnswer, false);
                 }
-                
+
                 // Save conversation and message IDs if not already set
                 if (!conversationId && eventData.conversation_id) {
                   conversationId = eventData.conversation_id;
@@ -479,16 +481,16 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
                 if (!messageId && eventData.id) {
                   messageId = eventData.id;
                 }
-                
+
                 // Signal completion to the callback
                 if (options?.onStreamingMessage) {
                   options.onStreamingMessage(fullAnswer, true);
                 }
-                
-                // 如果存在全局回调函数，也调用它
-                // @ts-expect-error - 使用全局回调函数
+
+                // If there's a global callback function, call it too
+                // @ts-expect-error - Using global callback function
                 if (global.handleStreamingMessage) {
-                  // @ts-expect-error - 调用全局回调函数
+                  // @ts-expect-error - Calling global callback function
                   global.handleStreamingMessage(fullAnswer, true);
                 }
               } else if (eventData.event === "error") {
@@ -502,18 +504,20 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
       } catch (error) {
         console.error("Error processing stream:", error);
       }
-      
-      // 打印流处理结果，用于调试
-      console.log(`Stream processing result - fullAnswer: ${fullAnswer ? "received" : "empty"}, messageId: ${messageId || "not set"}`);
-      
-      // 如果没有收到任何消息但有消息 ID，仍然返回空结果
+
+      // Print stream processing result for debugging
+      console.log(
+        `Stream processing result - fullAnswer: ${fullAnswer ? "received" : "empty"}, messageId: ${messageId || "not set"}`,
+      );
+
+      // If no message was received but there's a message ID, still return an empty result
       if (!fullAnswer && !messageId) {
         console.log("No message content received, but continuing anyway");
-        // 不抛出错误，而是返回空结果
+        // Don't throw an error, return an empty result instead
         fullAnswer = "";
         messageId = `msg_${Math.random().toString(36).substring(2, 10)}`;
       }
-      
+
       // Create result from collected data
       result = {
         message: fullAnswer,
@@ -521,7 +525,7 @@ export async function askDify(query: string, appName?: string, options?: DifyReq
         message_id: messageId || `msg_${Math.random().toString(36).substring(2, 10)}`,
         used_app: usedApp,
         app_type: appType ? appType.toString() : "unknown",
-        ...metadata
+        ...metadata,
       };
     } else {
       // For blocking mode, process the JSON response

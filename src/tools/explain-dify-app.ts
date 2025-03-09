@@ -15,23 +15,22 @@ async function findDifyApp(appName: string): Promise<DifyApp | null> {
   // Get application list from local storage
   const appsJson = await LocalStorage.getItem<string>("dify-apps");
   if (!appsJson) return null;
-  
+
   const apps: DifyApp[] = JSON.parse(appsJson);
   if (!apps || apps.length === 0) return null;
-  
+
   // Find the app with exact or partial name match
   const searchTerm = appName.toLowerCase();
-  
+
   // Try exact match first
-  const exactMatch = apps.find(app => app.name.toLowerCase() === searchTerm);
+  const exactMatch = apps.find((app) => app.name.toLowerCase() === searchTerm);
   if (exactMatch) return exactMatch;
-  
+
   // Try partial match
-  const partialMatch = apps.find(app => 
-    app.name.toLowerCase().includes(searchTerm) || 
-    searchTerm.includes(app.name.toLowerCase())
+  const partialMatch = apps.find(
+    (app) => app.name.toLowerCase().includes(searchTerm) || searchTerm.includes(app.name.toLowerCase()),
   );
-  
+
   return partialMatch || null;
 }
 
@@ -50,9 +49,9 @@ async function generateAppExplanation(app: DifyApp): Promise<string> {
       description: app.description || "No description provided",
       inputs: app.inputs || {},
       responseMode: app.responseMode || "blocking",
-      assistantName: app.assistantName
+      assistantName: app.assistantName,
     };
-    
+
     // Create the prompt for AI
     const prompt = `
     I need a comprehensive explanation of a Dify application with the following details:
@@ -66,16 +65,16 @@ async function generateAppExplanation(app: DifyApp): Promise<string> {
     
     Format the response in markdown with appropriate sections and formatting.
     `;
-    
+
     // Ask AI to generate the explanation
     const explanation = await AI.ask(prompt, {
-      creativity: "medium" // We want a balanced explanation that's informative but not overly creative
+      creativity: "medium", // We want a balanced explanation that's informative but not overly creative
     });
-    
+
     return explanation;
   } catch (error) {
     console.error("Error generating AI explanation:", error);
-    
+
     // Fallback to manual explanation if AI fails
     return generateManualExplanation(app);
   }
@@ -98,18 +97,18 @@ function generateManualExplanation(app: DifyApp): string {
   } else {
     typeDescription = "a Dify application that processes your inputs and provides relevant outputs";
   }
-  
+
   // Format input requirements
   let inputsDescription = "";
   if (app.inputs && Object.keys(app.inputs).length > 0) {
     inputsDescription = "## Required Inputs\n\n";
-    Object.keys(app.inputs).forEach(key => {
+    Object.keys(app.inputs).forEach((key) => {
       inputsDescription += `- **${key}**: ${app.inputs[key] || "Your input here"}\n`;
     });
   } else {
     inputsDescription = "## Inputs\n\nThis application doesn't require any specific inputs.";
   }
-  
+
   // Create the explanation
   return `# ${app.name}
 
@@ -139,7 +138,7 @@ ${app.assistantName ? `- **Assistant Name**: ${app.assistantName}` : ""}
 function formatExampleQuery(app: DifyApp): string {
   // Create example inputs based on app type
   const exampleInputs: Record<string, string> = {};
-  
+
   if (app.type.toLowerCase().includes("agent")) {
     exampleInputs["query"] = "What is the capital of France?";
   } else if (app.type.toLowerCase().includes("workflow")) {
@@ -149,9 +148,9 @@ function formatExampleQuery(app: DifyApp): string {
   } else {
     exampleInputs["message"] = "Hello, I need assistance with...";
   }
-  
+
   // Add any custom inputs from the app
-  Object.keys(app.inputs || {}).forEach(key => {
+  Object.keys(app.inputs || {}).forEach((key) => {
     if (!exampleInputs[key]) {
       if (key.toLowerCase().includes("query") || key.toLowerCase().includes("question")) {
         exampleInputs[key] = "What is the capital of France?";
@@ -164,7 +163,7 @@ function formatExampleQuery(app: DifyApp): string {
       }
     }
   });
-  
+
   return JSON.stringify(exampleInputs, null, 2);
 }
 
@@ -175,36 +174,36 @@ function formatExampleQuery(app: DifyApp): string {
 export default async function explainDifyAppTool(input: Input): Promise<string> {
   console.log("===== EXPLAIN DIFY APP TOOL CALLED =====");
   console.log("App Name:", input.appName);
-  
+
   try {
     // Check if app name is empty
     if (!input.appName || input.appName.trim() === "") {
       console.log("Empty app name received");
       return JSON.stringify({
-        message: "Please provide the name of a Dify application to explain."
+        message: "Please provide the name of a Dify application to explain.",
       });
     }
-    
+
     // Find the specified Dify application
     const app = await findDifyApp(input.appName);
-    
+
     // If app not found, return error message
     if (!app) {
       console.log(`App not found: ${input.appName}`);
       return JSON.stringify({
         message: `No Dify application found with name "${input.appName}". Please check the name and try again.`,
-        found: false
+        found: false,
       });
     }
-    
+
     console.log(`Found app: ${app.name}`);
-    
+
     // Generate explanation for the application
     const explanation = await generateAppExplanation(app);
-    
+
     // Generate example query
     const exampleQuery = formatExampleQuery(app);
-    
+
     return JSON.stringify({
       message: `Here's an explanation of the Dify application "${app.name}":`,
       app: {
@@ -213,16 +212,16 @@ export default async function explainDifyAppTool(input: Input): Promise<string> 
         endpoint: app.endpoint,
         description: app.description || "No description provided",
         explanation: explanation,
-        example_query: exampleQuery
+        example_query: exampleQuery,
       },
-      found: true
+      found: true,
     });
   } catch (error) {
     console.error("Error in explain-dify-app tool:", error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return JSON.stringify({ 
+    return JSON.stringify({
       error: errorMessage,
-      message: "An error occurred while processing your request."
+      message: "An error occurred while processing your request.",
     });
   }
 }

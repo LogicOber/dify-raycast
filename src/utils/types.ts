@@ -8,7 +8,7 @@ export enum DifyAppType {
 // Define conversation type enum
 export enum DifyConversationType {
   SingleCall = "single_call",
-  Continuous = "continuous"
+  Continuous = "continuous",
 }
 
 // App interface definition

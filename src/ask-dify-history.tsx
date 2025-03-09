@@ -273,12 +273,8 @@ export default function AskDifyHistory() {
                     />
                     <List.Item.Detail.Metadata.Separator />
                     <List.Item.Detail.Metadata.TagList title="Conversation ID">
-                      <List.Item.Detail.Metadata.TagList.Item
-                        text={thread.conversationId}
-                        color="#FFD60A"
-                      />
+                      <List.Item.Detail.Metadata.TagList.Item text={thread.conversationId} color="#FFD60A" />
                     </List.Item.Detail.Metadata.TagList>
-
                   </List.Item.Detail.Metadata>
                 }
               />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Action, ActionPanel, Form, List, Toast, showToast, LocalStorage } from "@raycast/api";
+import { Action, ActionPanel, Form, List, Toast, showToast, LocalStorage, Icon } from "@raycast/api";
 import { saveHistory, getHistories, DifyHistory } from "./utils/dify-service";
 import askDify from "./utils/ask-dify";
 import { DifyAppType, DifyApp, getAppTypeColor } from "./utils/types";
@@ -58,16 +58,24 @@ function getAppTypeText(appType: DifyAppType): string {
 }
 
 // Form view component - first level UI (select app and input query)
-function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversationId?: string; preselectedAppName?: string }) {
+function QueryFormView(props: {
+  onSubmit: (values: FormValues) => void;
+  conversationId?: string;
+  preselectedAppName?: string;
+}) {
   const [isLoading, setIsLoading] = useState(true);
   const [apps, setApps] = useState<DifyApp[]>([]);
   const [inputsPlaceholder, setInputsPlaceholder] = useState<string>("{}");
   const [inputsValue, setInputsValue] = useState<string>("");
   const [queryInput, setQueryInput] = useState("");
-  // 直接使用props.preselectedAppName作为初始值，确保初始化时就能反映预选应用
-  const [selectedAppName, setSelectedAppName] = useState(props.preselectedAppName || "");
-  const [inputsDescription, setInputsDescription] = useState<string>('Optional. Only required if your selected Dify app has defined input variables. You can provide values in JSON format like {"var1": "value1"} or simply as comma-separated values matching the order of variables.');
-  
+  // Set initial state to empty string to avoid controlled/uncontrolled component switching issues
+  const [selectedAppName, setSelectedAppName] = useState("");
+  // Store preselected app name reference
+  const preselectedAppNameRef = useRef<string | undefined>(props.preselectedAppName);
+  const [inputsDescription, setInputsDescription] = useState<string>(
+    'Optional. Only required if your selected Dify app has defined input variables. You can provide values in JSON format like {"var1": "value1"} or simply as comma-separated values matching the order of variables.',
+  );
+
   // Add error states
   const [queryError, setQueryError] = useState<string | undefined>();
   const [appNameError, setAppNameError] = useState<string | undefined>();
@@ -75,59 +83,61 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
   // Track if user has manually modified the inputs
   // No longer tracking if user modified inputs - removed userModifiedInputs state
 
-  // Track if we've initialized the component and the preselected app has been set
-  const initializedRef = useRef(false);
-  const preselectedAppSet = useRef(false);
-  
+  // Track if apps have been loaded
+  const appsLoadedRef = useRef(false);
+
   // Using useRef to track the previous inputsValue to avoid circular dependencies
   const prevInputsValueRef = useRef<string>(inputsValue);
-  
+
+  // Reference to the user ID field for clearing it
+  const userIdFieldRef = useRef<Form.TextField>(null);
+
   // Update input placeholder and description based on selected app
   useEffect(() => {
     // Skip if no app selected or no apps available
     if (!selectedAppName || apps.length === 0) {
       return;
     }
-    
+
     // Find the selected app
     const app = apps.find((app) => app.name === selectedAppName);
-    
+
     if (app && app.inputs && Object.keys(app.inputs).length > 0) {
       // Update input placeholder with examples
       const inputKeys = Object.keys(app.inputs);
-      
+
       // Create examples for different input formats
       const jsonExample = JSON.stringify(app.inputs, null, 2);
-      const namedParamsExample = inputKeys.map((key, index) => 
-        `${key}=value${index+1}`
-      ).join(", ");
-      
-      const positionalExample = inputKeys.map((key, index) => 
-        `value${index+1}`
-      ).join(", ");
-      
+      const namedParamsExample = inputKeys.map((key, index) => `${key}=value${index + 1}`).join(", ");
+
+      const positionalExample = inputKeys.map((key, index) => `value${index + 1}`).join(", ");
+
       // Set comprehensive placeholder with multiple examples
-      const placeholder = `${jsonExample}\n\n` + 
-                         `Named Parameters Format:\n${namedParamsExample}\n\n` +
-                         `Simple Format (positional values):\n${positionalExample}`;
-      
+      const placeholder =
+        `${jsonExample}\n\n` +
+        `Named Parameters Format:\n${namedParamsExample}\n\n` +
+        `Simple Format (positional values):\n${positionalExample}`;
+
       // Update placeholder
       setInputsPlaceholder(placeholder);
-      
+
       // Create a descriptive message about the required inputs with clear examples
-      const inputsDescriptionText = `📍 ${selectedAppName} requires the following inputs: ${inputKeys.map(k => `\`${k}\``).join(', ')}\n\n` +
-                                   `📍 Examples:\n` +
-                                   `• JSON format: \`${JSON.stringify(Object.fromEntries(inputKeys.map((k, i) => [k, `example${i+1}`])), null, 0)}\`\n` +
-                                   `• Named parameters: \`${inputKeys.map((k, i) => `${k}=example${i+1}`).join(', ')}\`\n` +
-                                   `• Simple values: \`${inputKeys.map((k, i) => `example${i+1}`).join(', ')}\`\n\n` +
-                                   `📍 Note: If you only provide values for some inputs (e.g., \`var1=value1, var3=value3\`), other defined inputs will be sent as empty strings.`;
-      
+      const inputsDescriptionText =
+        `📍 ${selectedAppName} requires the following inputs: ${inputKeys.map((k) => `\`${k}\``).join(", ")}\n\n` +
+        `📍 Examples:\n` +
+        `• JSON format: \`${JSON.stringify(Object.fromEntries(inputKeys.map((k, i) => [k, `example${i + 1}`])), null, 0)}\`\n` +
+        `• Named parameters: \`${inputKeys.map((k, i) => `${k}=example${i + 1}`).join(", ")}\`\n` +
+        `• Simple values: \`${inputKeys.map((k, i) => `example${i + 1}`).join(", ")}\`\n\n` +
+        `📍 Note: If you only provide values for some inputs (e.g., \`var1=value1, var3=value3\`), other defined inputs will be sent as empty strings.`;
+
       // Update the inputs description
       setInputsDescription(inputsDescriptionText);
     } else {
       // If app has no inputs, set empty placeholder and update description
       setInputsPlaceholder("No input variables required for this app");
-      setInputsDescription(`📍 ${selectedAppName} doesn't require any input variables. You can leave this field empty.`);
+      setInputsDescription(
+        `📍 ${selectedAppName} doesn't require any input variables. You can leave this field empty.`,
+      );
     }
   }, [selectedAppName, apps]);
 
@@ -143,13 +153,27 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
         // Applications loaded
         setApps(loadedApps);
         setIsLoading(false);
+
+        // Mark apps as loaded
+        appsLoadedRef.current = true;
+
+        // After apps are loaded, if there's a preselected app and it exists in the loaded apps list, select it
+        if (preselectedAppNameRef.current && loadedApps.some((app) => app.name === preselectedAppNameRef.current)) {
+          console.log(`Setting preselected app: ${preselectedAppNameRef.current}`);
+          setSelectedAppName(preselectedAppNameRef.current);
+        }
+        // If there's no preselected app or it doesn't exist, select the first app (if available)
+        else if (loadedApps.length > 0 && selectedAppName === "") {
+          console.log(`No preselected app, using first app: ${loadedApps[0].name}`);
+          setSelectedAppName(loadedApps[0].name);
+        }
       } catch (error) {
         console.error("Error loading Dify apps:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         await showToast({
           style: Toast.Style.Failure,
           title: "Error loading Dify apps",
-          message: errorMessage
+          message: errorMessage,
         });
         setIsLoading(false);
       }
@@ -158,42 +182,7 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
     loadApps();
   }, []);
 
-  // Initialize application selection
-
-  // 单独处理加载应用后设置预选应用的逻辑
-  useEffect(() => {
-    // 只在有应用加载后且有预选应用名称时执行
-    if (apps.length === 0 || !props.preselectedAppName || preselectedAppSet.current) {
-      return;
-    }
-    
-    // 检查预选的应用是否存在
-    const appExists = apps.some(app => app.name === props.preselectedAppName);
-    if (appExists) {
-      setSelectedAppName(props.preselectedAppName);
-      console.log(`Setting preselected app: ${props.preselectedAppName}`);
-      // 标记预选应用已设置
-      preselectedAppSet.current = true;
-    } else {
-      console.log(`Preselected app not found: ${props.preselectedAppName}`);
-    }
-  }, [apps, props.preselectedAppName]);
-
-  // 初始化应用选择（仅在没有预选应用时）
-  useEffect(() => {
-    // 如果已初始化或没有应用可用，或者已经设置了预选应用，则跳过
-    if (initializedRef.current || apps.length === 0 || preselectedAppSet.current) {
-      return;
-    }
-
-    // 在没有预选应用的情况下，使用第一个应用
-    const appToSelect = apps[0].name;
-    setSelectedAppName(appToSelect);
-    console.log(`No preselected app, using first app: ${appToSelect}`);
-
-    // 标记为已初始化
-    initializedRef.current = true;
-  }, [apps]);
+  // We've already handled preselected app during app loading, no need for these additional useEffects
 
   // Handle query input change
   function handleQueryInputChange(value: string) {
@@ -203,7 +192,7 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
       setQueryError(undefined);
     }
   }
-  
+
   // Validate query input
   function validateQuery(value: string) {
     if (!value || value.trim().length === 0) {
@@ -218,26 +207,26 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
   const handleAppChange = (appName: string) => {
     // Update UI display
     setSelectedAppName(appName);
-    
+
     // Clear error message
     if (appName) {
       setAppNameError(undefined);
-      
+
       // Show a toast with information about the selected app
       const app = apps.find((app) => app.name === appName);
       if (app) {
         const hasInputs = app.inputs && Object.keys(app.inputs).length > 0;
         showToast({
           style: Toast.Style.Success,
-          title: 'App: ' + appName,
-          message: hasInputs ? 
-            `has ${Object.keys(app.inputs || {}).length} input variables, check description please` : 
-            "doesn't require any input variables"
+          title: "App: " + appName,
+          message: hasInputs
+            ? `has ${Object.keys(app.inputs || {}).length} input variables, check description please`
+            : "doesn't require any input variables",
         });
       }
     }
   };
-  
+
   // Validate app selection
   function validateAppName(value: string) {
     if (!value) {
@@ -246,37 +235,9 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
     }
     setAppNameError(undefined);
     return true;
-  };
+  }
 
-  // Function to check if Dify apps are available
-  const checkDifyApps = async () => {
-    try {
-      const appsJson = await LocalStorage.getItem<string>("dify-apps");
-      const loadedApps: DifyApp[] = appsJson ? JSON.parse(appsJson) : [];
-
-      if (loadedApps.length === 0) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: "No Dify Apps Found",
-          message: "Please add a Dify app first using the 'Add Dify App' command",
-        });
-      } else {
-        await showToast({
-          style: Toast.Style.Success,
-          title: `${loadedApps.length} Dify Apps Available`,
-          message: loadedApps.map((app) => app.name).join(", "),
-        });
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "Error checking Dify apps",
-        message: errorMessage
-      });
-      console.error("Error checking Dify apps:", error);
-    }
-  };
+  // We've removed the checkDifyApps function as it's no longer needed
 
   // Parse inputs with support for JSON, comma-separated values, and Python-style arguments
   const parseInputs = (inputsStr: string, app: DifyApp | null): string => {
@@ -284,13 +245,13 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
 
     // Get input keys from the app
     const inputKeys = Object.keys(app.inputs);
-    
+
     // Initialize result with all input keys set to empty strings
     const result: Record<string, string> = {};
-    inputKeys.forEach(key => {
+    inputKeys.forEach((key) => {
       result[key] = ""; // Default all inputs to empty string
     });
-    
+
     // If no input string provided, return all inputs with empty values
     if (!inputsStr || inputsStr.trim() === "") {
       return JSON.stringify(result);
@@ -314,23 +275,23 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
         console.log("Invalid JSON format, trying other formats");
       }
     }
-    
+
     // Check if the input contains any key=value pairs (Python-style named arguments)
     const containsNamedArgs = /\w+\s*=/.test(inputsStr);
-    
+
     if (containsNamedArgs) {
       // Process Python-style arguments (both positional and named)
       // Split by commas first
-      const parts = inputsStr.split(/[,]/).map(part => part.trim());
+      const parts = inputsStr.split(/[,]/).map((part) => part.trim());
       let positionalIndex = 0;
-      
+
       for (const part of parts) {
         if (part.includes("=")) {
           // Named argument: key=value
           const [key, ...valueParts] = part.split("=");
           const trimmedKey = key.trim();
           const value = valueParts.join("=").trim(); // Handle values that might contain = signs
-          
+
           // Only set if it's a valid input key
           if (inputKeys.includes(trimmedKey)) {
             result[trimmedKey] = value;
@@ -345,8 +306,8 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
       }
     } else {
       // Simple comma-separated values (positional only)
-      const values = inputsStr.split(/[,]/).map(v => v.trim());
-      
+      const values = inputsStr.split(/[,]/).map((v) => v.trim());
+
       // Map each value to its corresponding key
       inputKeys.forEach((key, index) => {
         if (index < values.length && values[index]) {
@@ -355,7 +316,7 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
         // If no value provided, it keeps the default empty string
       });
     }
-    
+
     // Always return a JSON string
     return JSON.stringify(result);
   };
@@ -365,11 +326,11 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
     // Validate required fields
     const isQueryValid = validateQuery(values.input as string);
     const isAppNameValid = validateAppName(values.appName as string);
-    
+
     if (!isQueryValid || !isAppNameValid) {
       return; // If validation fails, don't submit the form
     }
-    
+
     // Get the selected app
     const appName = values.appName as string;
     const app = apps.find((a) => a.name === appName) || null;
@@ -394,33 +355,34 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
       isLoading={isLoading}
       actions={
         <ActionPanel>
-          <Action.SubmitForm onSubmit={onSubmitForm} title="Ask Dify" />
+          <Action.SubmitForm icon={Icon.Message} onSubmit={onSubmitForm} title="Ask Dify" />
           <Action
-            title="Clear Inputs"
+            icon={Icon.Trash}
+            title="Clear All"
             onAction={() => {
-              // Clear the input field
+              // Clear all input fields except Dify App selection
               setInputsValue("");
               prevInputsValueRef.current = "";
-              
+              setQueryInput("");
+
+              // Reset any error states
+              setQueryError(undefined);
+              setAppNameError(undefined);
+
+              // Clear the User ID field if it exists
+              if (userIdFieldRef.current) {
+                userIdFieldRef.current.reset();
+              }
+
               // Show confirmation toast
               showToast({
                 style: Toast.Style.Success,
-                title: "Inputs Cleared",
-                message: "Input field has been cleared"
+                title: "All Fields Cleared",
+                message: "All input fields have been cleared",
               });
             }}
             shortcut={{ modifiers: ["cmd"], key: "backspace" }}
           />
-          <Action
-            title="Debug Info"
-            onAction={() => {
-              // Print simplified debug information
-              console.log(`[DEBUG] State: appName=${selectedAppName}`);
-              console.log(`[DEBUG] inputsValue=${inputsValue}`);
-              console.log(`[DEBUG] prevInputsValueRef=${prevInputsValueRef.current}`);
-            }}
-          />
-          <Action title="Check Dify Apps" onAction={checkDifyApps} />
         </ActionPanel>
       }
     >
@@ -472,7 +434,8 @@ function QueryFormView(props: { onSubmit: (values: FormValues) => void; conversa
         title="User ID (Optional)"
         placeholder="Leave blank to use Raycast_username"
         info="Optional. Identifies you in conversations with Dify. Default uses 'Raycast_' followed by your system username, but you can enter a custom value if needed."
-      /> 
+        ref={userIdFieldRef}
+      />
     </Form>
   );
 }
@@ -571,7 +534,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
         await showToast({
           style: Toast.Style.Failure,
           title: "Error loading data",
-          message: errorMessage
+          message: errorMessage,
         });
         console.error("Error loading data:", error);
       }
@@ -620,7 +583,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
 
       // Get the selected app to access its responseMode
       const selectedApp = await getSelectedApp(appName);
-      
+
       // Create new user message
       const newUserMessage: ChatMessage = {
         id: `user-${Date.now()}`,
@@ -671,23 +634,23 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
           const handleStreamingMessage = (message: string, isComplete: boolean): void => {
             // Update the assistant message with the streaming content
             responseMessage = message;
-            
+
             // Find the current conversation and update the assistant message
-            setConversations(prevConversations => {
+            setConversations((prevConversations) => {
               const updatedConversations = [...prevConversations];
               const currentConversation = updatedConversations[0];
-              
+
               if (currentConversation) {
                 const updatedMessages = [...currentConversation.messages];
-                const assistantMessageIndex = updatedMessages.findIndex(m => m.id === pendingAssistantMessageId);
-                
+                const assistantMessageIndex = updatedMessages.findIndex((m) => m.id === pendingAssistantMessageId);
+
                 if (assistantMessageIndex !== -1) {
                   // Update the content of the assistant message
                   updatedMessages[assistantMessageIndex] = {
                     ...updatedMessages[assistantMessageIndex],
                     content: isComplete ? message : message + "\u258c", // Add cursor when typing
                   };
-                  
+
                   // Update the conversation with the new messages
                   updatedConversations[0] = {
                     ...currentConversation,
@@ -695,53 +658,52 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                   };
                 }
               }
-              
+
               return updatedConversations;
             });
           };
-          
+
           // Create parameter object, but don't include callback function (as it would be serialized)
           const streamingParams = {
             query: userQuery,
             appName: appName,
             inputs: parsedInputs,
             user: userIdRef.current,
-            responseMode: "streaming"
+            responseMode: "streaming",
           };
-          
 
           const jsonParams = JSON.stringify(streamingParams);
           console.log("Streaming params:", jsonParams);
-          
+
           // Create a function to handle streaming messages in the tool command
           // This function will be called inside the tool command, which then calls our handleStreamingMessage
           // We need to set a global callback function before executing the tool command
           // @ts-expect-error - Add global callback function
           global.handleStreamingMessage = handleStreamingMessage;
-          
+
           // Call askDify and pass callback function
           try {
             // We need to use JSON string to call askDify, as tool commands only accept string parameters
             const responseString = await askDify(jsonParams);
-            
+
             // Parse response
             if (responseString) {
               const fullResponse = JSON.parse(responseString);
-              
+
               // Store complete response data
               response = fullResponse;
               responseConversationId = fullResponse.conversation_id || "";
               responseMessageId = fullResponse.message_id || "";
               responseAppName = fullResponse.used_app || appName;
               responseAppType = fullResponse.app_type || "";
-              
+
               // Set conversation ID after initial streaming response completes
               if (responseConversationId) {
                 console.log(`Initial streaming response complete, setting conversation ID: ${responseConversationId}`);
                 setCurrentConversationId(responseConversationId);
-                
+
                 // Update conversation ID in the list
-                setConversations(prevConversations => {
+                setConversations((prevConversations) => {
                   const updatedConversations = [...prevConversations];
                   if (updatedConversations.length > 0) {
                     updatedConversations[0] = {
@@ -755,7 +717,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                 });
               }
             }
-            
+
             // Clean up global callback function
             // @ts-expect-error - Remove global callback function
             delete global.handleStreamingMessage;
@@ -780,38 +742,38 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
           // Call the askDify function with JSON string parameter
           const jsonParams = JSON.stringify(params);
           const responseString = await askDify(jsonParams);
-          
+
           // Parse the response
           response = JSON.parse(responseString);
-          
+
           // Check if there was an error
           if (response.error) {
             throw new Error(response.error);
           }
-          
+
           // Set response data
           responseMessage = response.message;
           responseConversationId = response.conversation_id;
           responseMessageId = response.message_id;
           responseAppName = response.used_app || appName;
           responseAppType = response.app_type;
-          
+
           // Update the assistant message with the response
-          setConversations(prevConversations => {
+          setConversations((prevConversations) => {
             const updatedConversations = [...prevConversations];
             const currentConversation = updatedConversations[0];
-            
+
             if (currentConversation) {
               const updatedMessages = [...currentConversation.messages];
-              const assistantMessageIndex = updatedMessages.findIndex(m => m.id === pendingAssistantMessageId);
-              
+              const assistantMessageIndex = updatedMessages.findIndex((m) => m.id === pendingAssistantMessageId);
+
               if (assistantMessageIndex !== -1) {
                 // Update the content of the assistant message
                 updatedMessages[assistantMessageIndex] = {
                   ...updatedMessages[assistantMessageIndex],
                   content: responseMessage,
                 };
-                
+
                 // Update the conversation with the new messages
                 updatedConversations[0] = {
                   ...currentConversation,
@@ -819,7 +781,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                 };
               }
             }
-            
+
             return updatedConversations;
           });
         }
@@ -840,8 +802,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
             id: responseMessageId || pendingAssistantMessageId,
             role: "assistant",
             content: responseMessage,
-
-          }
+          },
         ],
         title: userQuery,
         appName: responseAppName,
@@ -874,43 +835,45 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
 
       // Save session history
       await saveHistory(historyEntry);
-      
-      console.log(`Query processed successfully by ${responseAppName || appName || "Unknown App"} (${responseAppType ? getAppTypeText(responseAppType as DifyAppType) : "Unknown"})`);
+
+      console.log(
+        `Query processed successfully by ${responseAppName || appName || "Unknown App"} (${responseAppType ? getAppTypeText(responseAppType as DifyAppType) : "Unknown"})`,
+      );
     } catch (error) {
       // Reset the ref if there's an error so we can try again
       initialQueryProcessedRef.current = false;
-      
+
       // Show error toast with detailed message
       const errorMessage = error instanceof Error ? error.message : String(error);
       await showToast({
         style: Toast.Style.Failure,
         title: "Error asking Dify",
-        message: errorMessage
+        message: errorMessage,
       });
-      
+
       console.error("Error asking Dify:", error);
-      
+
       // Update the assistant message to show the error
-      setConversations(prevConversations => {
+      setConversations((prevConversations) => {
         const updatedConversations = [...prevConversations];
         if (updatedConversations.length > 0) {
           const currentConversation = updatedConversations[0];
           const updatedMessages = [...currentConversation.messages];
-          
+
           // Find the last assistant message (which should be the pending one)
-          const assistantMessageIndex = updatedMessages.findIndex(m => m.role === "assistant");
-          
+          const assistantMessageIndex = updatedMessages.findIndex((m) => m.role === "assistant");
+
           if (assistantMessageIndex !== -1) {
             // Update the content to show the error
             updatedMessages[assistantMessageIndex] = {
               ...updatedMessages[assistantMessageIndex],
-              content: `[❌ Error: ${errorMessage}]`
+              content: `[❌ Error: ${errorMessage}]`,
             };
-            
+
             // Update the conversation
             updatedConversations[0] = {
               ...currentConversation,
-              messages: updatedMessages
+              messages: updatedMessages,
             };
           }
         }
@@ -992,30 +955,30 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
       // and we're sure the conversation exists on the server
       // Also ensure conversation_id is a valid UUID
       const hasValidConversation = conversations.length > 0 && conversations[0].messages.length >= 2;
-      
+
       // Check if ID is a valid UUID
       const isValidUUID = (id: string): boolean => {
         if (!id) return false;
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         return uuidRegex.test(id);
       };
-      
+
       // Only use ID if it's a valid UUID
       const conversationId = hasValidConversation && isValidUUID(conversations[0].id) ? conversations[0].id : undefined;
       const currentConversationId = conversationId;
-      
+
       // Log current conversation ID usage
       if (conversationId) {
         console.log(`Using existing conversation ID: ${conversationId}`);
       } else {
-        console.log('No valid conversation ID, will create new conversation');
+        console.log("No valid conversation ID, will create new conversation");
       }
 
       // Get the selected app to access its responseMode
       const selectedApp = await getSelectedApp(detectedAppName);
       const responseMode = selectedApp?.responseMode || "streaming";
       console.log(`Using responseMode: ${responseMode} for follow-up query`);
-      
+
       // Variables to store streaming response data
       let responseMessage = "";
       let responseConversationId = currentConversationId || "";
@@ -1023,7 +986,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
       let responseAppName = detectedAppName;
       let responseAppType = "";
       let response;
-      
+
       // Parse inputs if provided
       let parsedInputs = {};
       try {
@@ -1041,23 +1004,23 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
           const handleStreamingMessage = (message: string, isComplete: boolean): void => {
             // Update the assistant message with the streaming content
             responseMessage = message;
-            
+
             // Find the current conversation and update the assistant message
-            setConversations(prevConversations => {
+            setConversations((prevConversations) => {
               const updatedConversations = [...prevConversations];
               const currentConversation = updatedConversations[0];
-              
+
               if (currentConversation) {
                 const updatedMessages = [...currentConversation.messages];
-                const assistantMessageIndex = updatedMessages.findIndex(m => m.id === pendingAssistantMessageId);
-                
+                const assistantMessageIndex = updatedMessages.findIndex((m) => m.id === pendingAssistantMessageId);
+
                 if (assistantMessageIndex !== -1) {
                   // Update the content of the assistant message
                   updatedMessages[assistantMessageIndex] = {
                     ...updatedMessages[assistantMessageIndex],
                     content: isComplete ? message : message + "\u258c", // Add cursor when typing
                   };
-                  
+
                   // Update the conversation with the new messages
                   updatedConversations[0] = {
                     ...currentConversation,
@@ -1065,11 +1028,11 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                   };
                 }
               }
-              
+
               return updatedConversations;
             });
           };
-          
+
           // Create parameter object without callback function (as it would be serialized)
           const streamingParams = {
             query: processedQuery,
@@ -1077,28 +1040,28 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
             inputs: parsedInputs,
             user: userIdRef.current,
             conversationId: currentConversationId,
-            responseMode: "streaming"
+            responseMode: "streaming",
           };
-          
+
           // Use modified askDify call
           const jsonParams = JSON.stringify(streamingParams);
           console.log("Streaming params for follow-up:", jsonParams);
-          
+
           // Create a function to handle streaming messages in the tool command
           // This function will be called inside the tool command, which then calls our handleStreamingMessage
           // We need to set a global callback function before executing the tool command
           // @ts-expect-error - Add global callback function
           global.handleStreamingMessage = handleStreamingMessage;
-          
+
           // Call askDify and pass callback function
           try {
             // We need to use JSON string to call askDify, as tool commands only accept string parameters
             const responseString = await askDify(jsonParams);
-            
+
             // Parse response
             if (responseString) {
               const fullResponse = JSON.parse(responseString);
-              
+
               // Store complete response data
               response = fullResponse;
               responseConversationId = fullResponse.conversation_id || "";
@@ -1106,7 +1069,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
               responseAppName = fullResponse.used_app || detectedAppName;
               responseAppType = fullResponse.app_type || "";
             }
-            
+
             // Clean up global callback function
             // @ts-expect-error - Remove global callback function
             delete global.handleStreamingMessage;
@@ -1131,37 +1094,37 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
 
           // Call the askDify function with JSON string parameter
           const responseString = await askDify(JSON.stringify(params));
-          
+
           // Parse the response
           response = JSON.parse(responseString);
-          
+
           // Check if there was an error
           if (response.error) {
             throw new Error(response.error);
           }
-          
+
           // Set response data
           responseMessage = response.message;
           responseConversationId = response.conversation_id;
           responseMessageId = response.message_id;
           responseAppName = response.used_app || detectedAppName;
           responseAppType = response.app_type;
-          
+
           // Update the assistant message with the response
-          setConversations(prevConversations => {
+          setConversations((prevConversations) => {
             const updatedConversations = [...prevConversations];
             if (updatedConversations.length > 0) {
               const currentConversation = updatedConversations[0];
               const updatedMessages = [...currentConversation.messages];
-              const assistantMessageIndex = updatedMessages.findIndex(m => m.id === pendingAssistantMessageId);
-              
+              const assistantMessageIndex = updatedMessages.findIndex((m) => m.id === pendingAssistantMessageId);
+
               if (assistantMessageIndex !== -1) {
                 // Update the content of the assistant message
                 updatedMessages[assistantMessageIndex] = {
                   ...updatedMessages[assistantMessageIndex],
                   content: responseMessage,
                 };
-                
+
                 // Update the conversation with the new messages
                 updatedConversations[0] = {
                   ...currentConversation,
@@ -1172,7 +1135,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                 };
               }
             }
-            
+
             return updatedConversations;
           });
         }
@@ -1180,13 +1143,12 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
         console.error("Error in API response:", error);
         throw error;
       }
-      
+
       // Create final assistant message
       const newAssistantMessage: ChatMessage = {
         id: responseMessageId || pendingAssistantMessageId,
         role: "assistant",
         content: responseMessage,
-
       };
 
       // Only update conversation in non-streaming mode or if streaming response failed
@@ -1198,7 +1160,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
           if (updated.length > 0) {
             // Remove temporary message, add actual message
             const messages = [...updated[0].messages];
-            const assistantMessageIndex = messages.findIndex(m => m.id === pendingAssistantMessageId);
+            const assistantMessageIndex = messages.findIndex((m) => m.id === pendingAssistantMessageId);
             if (assistantMessageIndex !== -1) {
               messages[assistantMessageIndex] = newAssistantMessage;
             }
@@ -1213,7 +1175,7 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
           }
           return updated;
         });
-        
+
         // Update conversation ID in non-streaming mode
         setCurrentConversationId(responseConversationId);
         console.log(`Follow-up query in non-streaming mode, updating conversation ID: ${responseConversationId}`);
@@ -1247,7 +1209,6 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
         used_app: responseAppName || detectedAppName || "Unknown App",
         app_type: responseAppType,
         user: userIdRef.current, // Save the current user ID
-
       };
 
       await saveHistory(historyEntry);
@@ -1255,38 +1216,39 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
       // Clear the query input
       setQuery("");
     } catch (error) {
-      // 显示详细的错误信息 Toast
+      // Show detailed error information in Toast
       const errorMessage = error instanceof Error ? error.message : String(error);
       await showToast({
         style: Toast.Style.Failure,
         title: "Error asking Dify",
-        message: errorMessage
+        message: errorMessage,
       });
-      
+
       console.error("Error asking Dify:", error);
-      
-      // 更新助手消息以显示错误
-      setConversations(prevConversations => {
+
+      // Update assistant message to display error
+      setConversations((prevConversations) => {
         const updatedConversations = [...prevConversations];
         if (updatedConversations.length > 0) {
           const currentConversation = updatedConversations[0];
           const updatedMessages = [...currentConversation.messages];
-          
-          // 查找最后一条助手消息（应该是待处理的那条）
-          const assistantMessageIndex = updatedMessages.findIndex(m => 
-            m.role === "assistant" && (m.content.includes("[📝 Typing...") || m.content.includes("\u258c")));
-          
+
+          // Find the last assistant message (the one that is currently being processed)
+          const assistantMessageIndex = updatedMessages.findIndex(
+            (m) => m.role === "assistant" && (m.content.includes("[📝 Typing...") || m.content.includes("\u258c")),
+          );
+
           if (assistantMessageIndex !== -1) {
-            // 更新内容以显示错误
+            // Update content to display error
             updatedMessages[assistantMessageIndex] = {
               ...updatedMessages[assistantMessageIndex],
-              content: `[❌ 错误: ${errorMessage}]`
+              content: `[❌ 错误: ${errorMessage}]`,
             };
-            
-            // 更新对话
+
+            // Update conversation
             updatedConversations[0] = {
               ...currentConversation,
-              messages: updatedMessages
+              messages: updatedMessages,
             };
           }
         }
@@ -1398,8 +1360,14 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
       isShowingDetail
       actions={
         <ActionPanel>
-          <Action title="Send Message" shortcut={{ modifiers: ["cmd"], key: "return" }} onAction={handleSubmit} />
           <Action
+            icon={Icon.ArrowUp}
+            title="Send Message"
+            shortcut={{ modifiers: ["cmd"], key: "return" }}
+            onAction={handleSubmit}
+          />
+          <Action
+            icon={Icon.NewDocument}
             title="New Conversation"
             shortcut={{ modifiers: ["cmd", "shift"], key: "n" }}
             onAction={props.onContinue}
@@ -1446,8 +1414,16 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                       <List.Item.Detail.Metadata.Label title="App" text={conversations[0].appName || "Unknown"} />
                       <List.Item.Detail.Metadata.TagList title="Type">
                         <List.Item.Detail.Metadata.TagList.Item
-                          text={conversations[0].appType ? getAppTypeText(conversations[0].appType as DifyAppType) : "Unknown"}
-                          color={conversations[0].appType ? getAppTypeColor(conversations[0].appType as DifyAppType) : "#8E8E93"}
+                          text={
+                            conversations[0].appType
+                              ? getAppTypeText(conversations[0].appType as DifyAppType)
+                              : "Unknown"
+                          }
+                          color={
+                            conversations[0].appType
+                              ? getAppTypeColor(conversations[0].appType as DifyAppType)
+                              : "#8E8E93"
+                          }
                         />
                       </List.Item.Detail.Metadata.TagList>
                       <List.Item.Detail.Metadata.Separator />
@@ -1457,12 +1433,8 @@ function ChatView(props: { formValues: FormValues; conversationId?: string; onCo
                       />
                       <List.Item.Detail.Metadata.Separator />
                       <List.Item.Detail.Metadata.TagList title="Conversation ID">
-                        <List.Item.Detail.Metadata.TagList.Item
-                          text={conversations[0].id}
-                          color="#FFD60A"
-                        />
+                        <List.Item.Detail.Metadata.TagList.Item text={conversations[0].id} color="#FFD60A" />
                       </List.Item.Detail.Metadata.TagList>
-
                     </List.Item.Detail.Metadata>
                   }
                 />
@@ -1615,9 +1587,9 @@ export default function Command(props: { conversationId?: string; preselectedApp
       {formValues ? (
         <ChatView formValues={formValues} conversationId={props.conversationId} onContinue={handleContinue} />
       ) : (
-        <QueryFormView 
-          onSubmit={handleFormSubmit} 
-          conversationId={props.conversationId} 
+        <QueryFormView
+          onSubmit={handleFormSubmit}
+          conversationId={props.conversationId}
           preselectedAppName={props.preselectedAppName}
         />
       )}

@@ -117,7 +117,7 @@ export default function Command() {
       // Create new app object
       // Use default endpoint if not provided
       const defaultEndpoint = "https://api.dify.ai/v1";
-      
+
       // Create timestamp with timezone information
       const now = new Date();
       const timestamp = now.toISOString();
@@ -189,7 +189,7 @@ export default function Command() {
     >
       <Form.TextField
         id="name"
-        title="Application Name" 
+        title="Application Name"
         placeholder="My Dify App"
         error={nameError}
         info="Required. A unique name to identify this Dify application."
@@ -238,9 +238,9 @@ export default function Command() {
         placeholder="Dify"
         info="Name to display for this assistant in conversations"
       />
-      <Form.Dropdown 
-        id="type" 
-        title="App Type" 
+      <Form.Dropdown
+        id="type"
+        title="App Type"
         defaultValue={DifyAppType.ChatflowAgent}
         info="Required. Must match the type of your Dify application. The API key must be for this specific app type."
       >
