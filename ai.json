@@ -1,0 +1,32 @@
+{
+  "instructions": "当用户想要查询 Dify 应用时，请先使用 list-dify-apps 工具获取可用的应用列表和详细信息，然后再使用 ask-dify 工具发送查询。不要尝试猜测应用名称或接口参数，必须基于 list-dify-apps 返回的信息。",
+  "evals": [
+    {
+      "input": "@dify 我想问一下关于人工智能的知识",
+      "expected": [
+        {"callsTool": "list-dify-apps"},
+        {"callsTool": {"name": "ask-dify", "arguments": {"query": {"includes": "人工智能"}}}}
+      ]
+    },
+    {
+      "input": "@dify 使用 ChatGPT 应用问一下什么是机器学习",
+      "expected": [
+        {"callsTool": "list-dify-apps"},
+        {"callsTool": {"name": "ask-dify", "arguments": {"appName": "ChatGPT", "query": {"includes": "机器学习"}}}}
+      ]
+    },
+    {
+      "input": "@dify 列出我所有的应用",
+      "expected": [
+        {"callsTool": "list-dify-apps"}
+      ]
+    },
+    {
+      "input": "@dify 告诉我关于我的 SlackNote 应用的信息",
+      "expected": [
+        {"callsTool": "list-dify-apps"},
+        {"callsTool": "explain-dify-app"}
+      ]
+    }
+  ]
+}
