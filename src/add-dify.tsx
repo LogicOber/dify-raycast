@@ -1,4 +1,4 @@
-import { ActionPanel, Form, Action, showToast, Toast, LocalStorage, useNavigation } from "@raycast/api";
+import { ActionPanel, Form, Action, showToast, Toast, LocalStorage, useNavigation, Icon } from "@raycast/api";
 import React, { useState } from "react";
 import { DifyAppType, DifyApp, DifyConversationType } from "./utils/types";
 
@@ -183,7 +183,7 @@ export default function Command() {
     <Form
       actions={
         <ActionPanel>
-          <Action.SubmitForm onSubmit={handleSubmit} title="Add Application" />
+          <Action.SubmitForm icon={Icon.Plus} onSubmit={handleSubmit} title="Add Application" />
         </ActionPanel>
       }
     >
