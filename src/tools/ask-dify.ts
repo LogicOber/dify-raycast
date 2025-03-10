@@ -161,70 +161,72 @@ export default async function askDifyTool(input: Input): Promise<string> {
       // Filter out invalid input field names (empty or whitespace only)
       const validInputs: { [key: string]: string } = {};
       for (const key of Object.keys(appDetails.inputs)) {
-        if (key.trim() !== '') {
+        if (key.trim() !== "") {
           validInputs[key] = appDetails.inputs[key] as string;
         } else {
           console.log("Skipping invalid input field name (empty or whitespace only)");
         }
       }
-      
+
       // Only proceed if there are valid inputs
       if (Object.keys(validInputs).length > 0) {
         hasInputs = true;
         console.log("App has defined inputs:", validInputs);
-        
+
         // Get the required input fields from app details
         const inputFields = Object.keys(validInputs);
-        
+
         // If there are input fields and AI is available, use AI to extract values
         if (inputFields.length > 0 && environment.canAccess(AI)) {
           console.log("Using AI to extract input values from query...");
-          
+
           try {
-          // Construct AI prompt to extract values
-          const aiPrompt = `You need to extract specific information from a user query to fill in required input fields for a Dify application.
+            // Construct AI prompt to extract values
+            const aiPrompt = `You need to extract specific information from a user query to fill in required input fields for a Dify application.
 
 User query: "${query}"
 
 Required input fields:
-${inputFields.map(field => `- ${field}`).join('\n')}
+${inputFields.map((field) => `- ${field}`).join("\n")}
 
 For each field, provide ONLY the extracted value. If a value is not present in the query, respond with "not specified".
 Format your response exactly like this:
-${inputFields.map(field => `${field}: [extracted value]`).join('\n')}`;
-          
-          const aiResponse = await AI.ask(aiPrompt, {
-            creativity: "low",
-            model: AI.Model["OpenAI_GPT4o-mini"],
-          });
-          
-          console.log("AI extraction response:", aiResponse);
-          
-          // Parse AI response
-          const lines = aiResponse.split('\n').filter(line => line.trim() !== '');
-          for (const line of lines) {
-            const match = line.match(/^([^:]+):\s*(.+)$/i);
-            if (match) {
-              const [, field, value] = match;
-              const trimmedField = field.trim();
-              const trimmedValue = value.trim();
-              
-              // Only use the extracted value if it's not "not specified"
-              if (trimmedValue.toLowerCase() !== "not specified" && 
-                  inputFields.some(f => f.toLowerCase() === trimmedField.toLowerCase())) {
-                console.log(`AI extracted value for ${trimmedField}: ${trimmedValue}`);
-                parsedInputs[trimmedField] = trimmedValue;
+${inputFields.map((field) => `${field}: [extracted value]`).join("\n")}`;
+
+            const aiResponse = await AI.ask(aiPrompt, {
+              creativity: "low",
+              model: AI.Model["OpenAI_GPT4o-mini"],
+            });
+
+            console.log("AI extraction response:", aiResponse);
+
+            // Parse AI response
+            const lines = aiResponse.split("\n").filter((line) => line.trim() !== "");
+            for (const line of lines) {
+              const match = line.match(/^([^:]+):\s*(.+)$/i);
+              if (match) {
+                const [, field, value] = match;
+                const trimmedField = field.trim();
+                const trimmedValue = value.trim();
+
+                // Only use the extracted value if it's not "not specified"
+                if (
+                  trimmedValue.toLowerCase() !== "not specified" &&
+                  inputFields.some((f) => f.toLowerCase() === trimmedField.toLowerCase())
+                ) {
+                  console.log(`AI extracted value for ${trimmedField}: ${trimmedValue}`);
+                  parsedInputs[trimmedField] = trimmedValue;
+                }
               }
             }
+          } catch (aiError) {
+            console.error("Error using AI to extract input values:", aiError);
           }
-        } catch (aiError) {
-          console.error("Error using AI to extract input values:", aiError);
         }
-      }
-      
+
         // For any fields that weren't extracted by AI, use default values if they exist
-        inputFields.forEach(field => {
-          if (!parsedInputs[field] && typeof validInputs[field] === 'string' && validInputs[field] !== '') {
+        inputFields.forEach((field) => {
+          if (!parsedInputs[field] && typeof validInputs[field] === "string" && validInputs[field] !== "") {
             parsedInputs[field] = validInputs[field] as string;
             console.log(`Using default value for ${field}: ${parsedInputs[field]}`);
           }
